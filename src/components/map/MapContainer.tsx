@@ -118,8 +118,8 @@ export default function MapContainer() {
           mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
         >
           <div className="absolute top-20 left-4 z-10 flex flex-col gap-2">
-            <NavigationControl showCompass={false} position="static" />
-            <FullscreenControl position="static" />
+            <NavigationControl showCompass={false} />
+            <FullscreenControl />
           </div>
           <ScaleControl position="bottom-left" />
         </Map>

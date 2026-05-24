@@ -230,7 +230,7 @@ export default function MapContainer() {
           </div>
         </Card>
 
-        {result?.mode === 'fallback' && (
+        {(result as any)?.mode === 'fallback' && (
           <div className="p-4 bg-amber-50/80 backdrop-blur-xl border border-amber-200/50 text-amber-900 flex items-start gap-4 rounded-[1.5rem] shadow-lg animate-in fade-in slide-in-from-right-4">
             <div className="p-2 bg-amber-100 rounded-xl">
               <AlertTriangle className="w-4 h-4 text-amber-600" />

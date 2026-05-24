@@ -1,53 +1,37 @@
 import { BitmapLayer } from '@deck.gl/layers';
-import { TileLayer } from '@deck.gl/geo-layers';
 
 /**
  * AI Prediction Layer
- * Renders the semantic segmentation mask as a semi-transparent overlay.
+ * Renders the processed mask image over the analyzed bounding box.
  */
-export function createAILayer(data: any, visible: boolean, opacity: number) {
-  if (!data || !visible) return null;
+export function createAILayer(result: any, visible: boolean, opacity: number) {
+  if (!result || !visible || !result.processedImage || !result.bbox) return null;
 
-  return new TileLayer({
+  return new BitmapLayer({
     id: 'ai-prediction-layer',
-    data: data.url || '', // This would be the GEE map tile URL or a local canvas
+    image: result.processedImage,
+    bounds: result.bbox, // [west, south, east, north]
     opacity: opacity,
-    visible: visible,
-    renderSubLayers: (props: any) => {
-      const { west, south, east, north } = props.tile.bbox;
-      return new BitmapLayer(props, {
-        data: undefined,
-        image: props.data,
-        bounds: [west, south, east, north],
-        // Custom shader or tinting could go here
-      });
-    },
+    pickable: true,
     updateTriggers: {
-      data: data.url,
+      image: result.processedImage,
       opacity: opacity
     }
   });
 }
 
 /**
- * Uncertainty Heatmap Layer
- * Renders the confidence scores using a Color Ramp (Red to Green).
+ * Uncertainty Layer (Confidence Heatmap)
+ * In v1, we use the same mask but with a different color ramp logic if needed.
  */
-export function createUncertaintyLayer(data: any, visible: boolean) {
-  if (!data || !visible) return null;
+export function createUncertaintyLayer(result: any, visible: boolean) {
+  if (!result || !visible || !result.processedImage || !result.bbox) return null;
 
-  return new TileLayer({
+  return new BitmapLayer({
     id: 'uncertainty-heatmap',
-    data: data.uncertaintyUrl || '', 
-    visible: visible,
-    opacity: 0.7,
-    renderSubLayers: (props: any) => {
-      const { west, south, east, north } = props.tile.bbox;
-      return new BitmapLayer(props, {
-        data: undefined,
-        image: props.data,
-        bounds: [west, south, east, north],
-      });
-    }
+    image: result.processedImage,
+    bounds: result.bbox,
+    opacity: 0.5,
+    tintColor: [255, 165, 0], // Amber tint for uncertainty visualization
   });
 }

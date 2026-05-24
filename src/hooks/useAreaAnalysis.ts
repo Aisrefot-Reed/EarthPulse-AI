@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { maskToDataURL } from '@/utils/visualize';
 
 interface AnalysisResult {
   success: boolean;
   mode: 'prithvi' | 'gee';
   data: any;
+  processedImage?: string;
+  bbox: number[];
   meta: {
     processingTime: number;
     creditsLeft?: number;
@@ -22,7 +25,6 @@ export function useAreaAnalysis() {
   const analyzeArea = useCallback(async (bbox: number[], dateRange: [string, string]) => {
     setLoading(true);
     try {
-      // 1. Call GEE for baseline and imagery for AI
       const geeResponse = await fetch('/api/gee/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,35 +32,39 @@ export function useAreaAnalysis() {
       });
       
       const geeData = await geeResponse.json();
-      
       if (!geeData.success) throw new Error(geeData.error);
 
-      // 2. Attempt Premium AI (Prithvi)
-      // We pass the imageUrl from GEE to our AI endpoint
       const aiResponse = await fetch('/api/ai/infer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           bbox, 
-          imageUrl: geeData.data.url.replace('{z}/{x}/{y}', '10/500/500'), // Mocked tile for inference
+          imageUrl: geeData.data.url.replace('{z}/{x}/{y}', '10/500/500'), // Placeholder for specific tile
           cacheKey: `${bbox.join(',')}-${dateRange.join(',')}`
         })
       });
 
       const aiData = await aiResponse.json();
 
-      if (aiData.success) {
-        setResult(aiData);
-        setCredits(prev => Math.max(0, prev - (aiData.meta.cached ? 0 : 1)));
+      if (aiData.success && aiData.mode === 'prithvi') {
+        // Convert raw AI mask to visible image
+        const processedImage = maskToDataURL(aiData.data, 224, 224);
+        setResult({
+          ...aiData,
+          processedImage,
+          bbox,
+          data: geeData.data // Keep GEE tiles as base
+        });
+        if (!aiData.meta.cached) setCredits(prev => Math.max(0, prev - 1));
       } else {
-        // Fallback to GEE
         setResult({
           success: true,
           mode: 'gee',
           data: geeData.data,
+          bbox,
           meta: { processingTime: geeData.meta.processingTime }
         });
-        toast.info(aiData.error || 'Using GEE baseline analysis.');
+        if (aiData.error) toast.info(aiData.error);
       }
 
     } catch (error: any) {

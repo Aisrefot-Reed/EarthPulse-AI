@@ -1,8 +1,12 @@
-import * as ort from 'onnxruntime-node';
+import * as ort from 'onnxruntime-web';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
-import { downloadFile } from '@/utils/download'; // New utility needed
+import { downloadFile } from '@/utils/download';
+
+// Required for onnxruntime-web in Node.js environment
+ort.env.wasm.numThreads = 1;
+ort.env.wasm.simd = false; // Disable SIMD for maximum compatibility on Vercel
 
 let session: ort.InferenceSession | null = null;
 const MODEL_URL = process.env.PRITHVI_MODEL_URL!; // e.g., HF Hub direct link
@@ -16,19 +20,26 @@ async function getInferenceSession() {
 
   if (!fs.existsSync(TMP_MODEL_PATH)) {
     console.log('[AI] Model weights missing in /tmp. Downloading...');
-    await downloadFile(MODEL_URL, TMP_MODEL_PATH);
-    console.log('[AI] Model download complete.');
+    try {
+      await downloadFile(MODEL_URL, TMP_MODEL_PATH);
+      console.log('[AI] Model download complete.');
+    } catch (e) {
+      console.error('[AI] Download failed:', e);
+      throw new Error('MODEL_DOWNLOAD_FAILED');
+    }
   }
 
   try {
-    session = await ort.InferenceSession.create(TMP_MODEL_PATH, {
-      executionProviders: ['cpu'],
+    // We use the WASM execution provider to avoid native .so binding issues on Vercel Serverless
+    const modelBuffer = fs.readFileSync(TMP_MODEL_PATH);
+    session = await ort.InferenceSession.create(modelBuffer, {
+      executionProviders: ['wasm'],
       graphOptimizationLevel: 'all'
     });
     return session;
   } catch (error) {
-    console.error('[AI] Failed to create inference session:', error);
-    throw error;
+    console.error('[AI] Failed to create WASM inference session:', error);
+    throw new Error('SESSION_CREATION_FAILED');
   }
 }
 

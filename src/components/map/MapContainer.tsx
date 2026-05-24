@@ -106,7 +106,7 @@ export default function MapContainer() {
   }, [result, layersVisibility, aiOpacity]);
 
   return (
-    <div className="relative w-full h-screen bg-slate-950 overflow-hidden">
+    <div className="relative w-full h-screen bg-slate-50 overflow-hidden">
       <DeckGL
         viewState={viewState}
         onViewStateChange={({ viewState }) => setViewState(viewState as any)}
@@ -115,7 +115,7 @@ export default function MapContainer() {
       >
         <Map
           mapLib={maplibregl as any}
-          mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+          mapStyle="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
         >
           <NavigationControl position="top-left" />
           <FullscreenControl position="top-left" />
@@ -125,28 +125,28 @@ export default function MapContainer() {
       
       {/* Top Bar: Credits & Status */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4">
-        <Card className="px-4 py-2 bg-slate-900/90 border-slate-800 flex items-center gap-3 backdrop-blur-xl">
+        <Card className="px-4 py-2 bg-white/70 border-white/50 flex items-center gap-3 backdrop-blur-2xl shadow-sm text-slate-800 rounded-2xl">
           <div className="flex items-center gap-2">
-            <Zap className={cn("w-4 h-4", credits > 0 ? "text-emerald-400" : "text-slate-500")} />
-            <span className="text-sm font-medium text-slate-200">AI Credits: {credits}/5</span>
+            <Zap className={cn("w-4 h-4", credits > 0 ? "text-emerald-500" : "text-slate-400")} />
+            <span className="text-sm font-medium">AI Credits: {credits}/5</span>
           </div>
-          <div className="w-px h-4 bg-slate-700" />
+          <div className="w-px h-4 bg-slate-200" />
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={handleAnalyze} 
             disabled={loading || credits === 0 || isStoryMode}
-            className="h-8 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+            className="h-8 text-xs font-semibold tracking-wide text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Analyze Current View"}
           </Button>
-          <div className="w-px h-4 bg-slate-700" />
+          <div className="w-px h-4 bg-slate-200" />
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={startStoryMode} 
             disabled={isStoryMode}
-            className="h-8 text-xs font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+            className="h-8 text-xs font-semibold tracking-wide text-amber-600 hover:text-amber-700 hover:bg-amber-50"
           >
             Story Mode
           </Button>
@@ -164,18 +164,18 @@ export default function MapContainer() {
 
       {/* Right Panel: Controls */}
       <div className="absolute top-4 right-4 z-20 w-72 flex flex-col gap-4">
-        <Card className="p-4 bg-slate-900/90 border-slate-800 backdrop-blur-xl text-white shadow-2xl">
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <Info className="w-4 h-4 text-emerald-400" />
+        <Card className="p-4 bg-white/70 border-white/50 backdrop-blur-2xl shadow-xl text-slate-800 rounded-2xl">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Info className="w-4 h-4 text-emerald-500" />
             Control Center
           </h2>
           
           <div className="space-y-6">
             <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-tighter text-slate-400">Layers</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Layers</label>
               <div className="space-y-2">
                 <label className="flex items-center justify-between group cursor-pointer">
-                  <span className="text-sm text-slate-300 group-hover:text-white transition-colors">AI Predictions</span>
+                  <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">AI Predictions</span>
                   <input 
                     type="checkbox" 
                     checked={layersVisibility.ai} 
@@ -184,7 +184,7 @@ export default function MapContainer() {
                   />
                 </label>
                 <label className="flex items-center justify-between group cursor-pointer">
-                  <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Uncertainty Map</span>
+                  <span className="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Uncertainty Map</span>
                   <input 
                     type="checkbox" 
                     checked={layersVisibility.uncertainty} 
@@ -196,7 +196,7 @@ export default function MapContainer() {
             </div>
 
             <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-tighter text-slate-400">AI Opacity</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">AI Opacity</label>
               <Slider 
                 value={[aiOpacity * 100]} 
                 onValueChange={(val: any) => setAiOpacity(val[0] / 100)} 
@@ -209,26 +209,26 @@ export default function MapContainer() {
         </Card>
 
         {result?.mode === 'gee' && (
-          <Card className="p-3 bg-amber-500/10 border-amber-500/50 backdrop-blur-xl text-amber-200 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
+          <Card className="p-3 bg-amber-50 border-amber-200/50 backdrop-blur-xl text-amber-900 flex items-start gap-3 rounded-2xl shadow-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
             <div className="text-xs">
-              <p className="font-bold">GEE Fallback Active</p>
-              <p className="opacity-80">Premium AI limit reached or timeout occurred. Showing reliable baseline data.</p>
+              <p className="font-semibold">GEE Fallback Active</p>
+              <p className="opacity-80 mt-1">Premium AI limit reached or timeout occurred. Showing reliable baseline data.</p>
             </div>
           </Card>
         )}
       </div>
 
       {/* Bottom: Timeline Placeholder */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-4xl px-4">
-        <Card className="p-4 bg-slate-900/90 border-slate-800 backdrop-blur-xl text-white">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400">2019</span>
-            <span className="text-sm font-bold text-emerald-400">JOURNEY OF A FOREST</span>
-            <span className="text-xs font-mono text-slate-400">2026</span>
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-3xl px-4">
+        <Card className="p-4 bg-white/70 border-white/50 backdrop-blur-2xl shadow-xl rounded-2xl text-slate-800">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-slate-500">2019</span>
+            <span className="text-sm font-semibold tracking-wider text-emerald-600">JOURNEY OF A FOREST</span>
+            <span className="text-xs font-medium text-slate-500">2026</span>
           </div>
-          <div className="h-1 bg-slate-800 rounded-full relative overflow-hidden">
-            <div className="absolute inset-y-0 left-0 w-1/3 bg-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+          <div className="h-1.5 bg-slate-200/50 rounded-full relative overflow-hidden">
+            <div className="absolute inset-y-0 left-0 w-1/3 bg-emerald-500 shadow-sm" />
           </div>
         </Card>
       </div>

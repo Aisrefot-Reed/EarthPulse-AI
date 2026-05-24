@@ -60,19 +60,12 @@ export async function POST(req: Request) {
     const processingTime = Date.now() - startTime;
     console.error(`[AI] Error after ${processingTime}ms:`, error.message);
     
-    if (error.message === 'Inference Timeout') {
-      return NextResponse.json({
-        success: false,
-        mode: 'gee',
-        error: 'AI timed out. Falling back to GEE Baseline.',
-        meta: { processingTime }
-      }, { status: 504 });
-    }
-
+    // Always return a graceful fallback to GEE so the UI doesn't crash
     return NextResponse.json({
-      success: false,
-      error: error.message,
-      meta: { processingTime }
-    }, { status: 500 });
+      success: true, // We successfully handled the fallback
+      mode: 'gee',
+      error: error.message === 'Inference Timeout' ? 'AI timed out. Falling back to GEE Baseline.' : 'AI analysis failed. Using GEE fallback.',
+      meta: { processingTime, fallbackTriggered: true }
+    }, { status: 200 }); // Returning 200 ensures the hook completes normally
   }
 }

@@ -25,13 +25,30 @@ export async function POST(req: Request) {
     // Ensure GEE is initialized
     await initGEE();
 
+    // Date range safety: GEE filterDate is [start, end)
+    // If dates are identical or missing, we create a valid range
+    let start = dateStart || '2023-01-01';
+    let end = dateEnd || '2023-12-31';
+
+    if (start === end) {
+      // If single day provided (Story Mode), extend by 2 months to find a cloud-free image
+      const startDate = new Date(start);
+      const endDate = new Date(start);
+      endDate.setMonth(startDate.getMonth() + 2);
+      end = endDate.toISOString().split('T')[0];
+      
+      // Move start back by 1 month to have a window
+      startDate.setMonth(startDate.getMonth() - 1);
+      start = startDate.toISOString().split('T')[0];
+    }
+
     // Create calculation area
     const area = ee.Geometry.Rectangle(bbox);
     
     // Sentinel-2 True Color + NDVI Analysis
     const s2Collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
       .filterBounds(area)
-      .filterDate(dateStart || '2023-01-01', dateEnd || '2023-12-31')
+      .filterDate(start, end)
       .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20))
       .median();
 

@@ -33,6 +33,26 @@ async function getInferenceSession() {
 }
 
 /**
+ * Preprocesses a raw image buffer from GEE into the format expected by Prithvi.
+ */
+async function preprocess(buffer: Buffer) {
+  const { data } = await sharp(buffer)
+    .resize(224, 224)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const floatData = new Float32Array(224 * 224 * 3);
+  for (let i = 0; i < 224 * 224; i++) {
+    floatData[i * 3] = data[i * 4] / 255.0;
+    floatData[i * 3 + 1] = data[i * 4 + 1] / 255.0;
+    floatData[i * 3 + 2] = data[i * 4 + 2] / 255.0;
+  }
+
+  return new ort.Tensor('float32', floatData, [1, 3, 224, 224]);
+}
+
+/**
  * Runs local inference with OOM protection.
  */
 export async function runPrithviInference(imageBuffer: Buffer) {

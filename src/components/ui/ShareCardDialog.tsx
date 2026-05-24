@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/card'; // Note: Dialog is usually from dialog.tsx, using Card as wrapper if preferred but let's stick to shadcn convention
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Share2, Download, Twitter, Globe, Info, Loader2, Sparkles } from 'lucide-react';
+import { Share2, Download, Globe, Info, Loader2, Sparkles } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 
@@ -125,7 +125,7 @@ export const ShareCardDialog = ({ regionName, stats, mapScreenshot }: ShareCardP
             className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-bold h-12"
             onClick={shareToTwitter}
           >
-            <Twitter className="w-4 h-4 mr-2" />
+            <Share2 className="w-4 h-4 mr-2" />
             Share on X
           </Button>
         </div>

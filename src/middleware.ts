@@ -10,7 +10,7 @@ const redis = new Redis({
 export async function middleware(request: NextRequest) {
   // Only rate limit AI inference routes
   if (request.nextUrl.pathname.startsWith('/api/ai/')) {
-    const ip = request.ip ?? '127.0.0.1'
+    const ip = (request as any).ip ?? '127.0.0.1'
     const key = `ratelimit:ai:${ip}`
     
     const count = await redis.incr(key)

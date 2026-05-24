@@ -13,10 +13,10 @@ export function createAILayer(data: any, visible: boolean, opacity: number) {
     data: data.url || '', // This would be the GEE map tile URL or a local canvas
     opacity: opacity,
     visible: visible,
-    renderSubLayers: (props) => {
-      const { bbox: { west, south, east, north } } = props.tile;
+    renderSubLayers: (props: any) => {
+      const { west, south, east, north } = props.tile.bbox;
       return new BitmapLayer(props, {
-        data: null,
+        data: undefined,
         image: props.data,
         bounds: [west, south, east, north],
         // Custom shader or tinting could go here
@@ -41,10 +41,10 @@ export function createUncertaintyLayer(data: any, visible: boolean) {
     data: data.uncertaintyUrl || '', 
     visible: visible,
     opacity: 0.7,
-    renderSubLayers: (props) => {
-      const { bbox: { west, south, east, north } } = props.tile;
+    renderSubLayers: (props: any) => {
+      const { west, south, east, north } = props.tile.bbox;
       return new BitmapLayer(props, {
-        data: null,
+        data: undefined,
         image: props.data,
         bounds: [west, south, east, north],
       });

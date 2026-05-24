@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import Map, { NavigationControl, FullscreenControl, ScaleControl, WebMercatorViewport } from 'react-map-gl';
+import React, { useState, useMemo } from 'react';
+import Map, { NavigationControl, FullscreenControl, ScaleControl } from 'react-map-gl/maplibre';
 import DeckGL from '@deck.gl/react';
 import { TileLayer } from '@deck.gl/geo-layers';
 import { BitmapLayer } from '@deck.gl/layers';
+import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useAreaAnalysis } from '@/hooks/useAreaAnalysis';
@@ -84,10 +85,10 @@ export default function MapContainer() {
         id: 'gee-base',
         data: result.data.url,
         visible: layersVisibility.base,
-        renderSubLayers: (props) => {
-          const { bbox: { west, south, east, north } } = props.tile;
+        renderSubLayers: (props: any) => {
+          const { west, south, east, north } = props.tile.bbox;
           return new BitmapLayer(props, {
-            data: null,
+            data: undefined,
             image: props.data,
             bounds: [west, south, east, north]
           });
@@ -113,7 +114,7 @@ export default function MapContainer() {
         layers={layers}
       >
         <Map
-          mapLibreGL={import('maplibre-gl')}
+          mapLib={maplibregl as any}
           mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         >
           <NavigationControl position="top-left" />
@@ -198,7 +199,7 @@ export default function MapContainer() {
               <label className="text-xs font-bold uppercase tracking-tighter text-slate-400">AI Opacity</label>
               <Slider 
                 value={[aiOpacity * 100]} 
-                onValueChange={(val) => setAiOpacity(val[0] / 100)} 
+                onValueChange={(val: any) => setAiOpacity(val[0] / 100)} 
                 max={100} 
                 step={1}
                 className="py-2"

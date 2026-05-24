@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Assuming standard shadcn input
 import { ShieldCheck, Mail, Loader2, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -83,7 +82,7 @@ export const AdoptForm = ({ bbox, regionName }: AdoptFormProps) => {
         </form>
 
         <p className="text-[10px] text-slate-500 text-center leading-relaxed">
-          By adopting, you agree to receive automated email alerts when our AI detects significant landscape changes (>5%). Max 3 regions per user.
+          By adopting, you agree to receive automated email alerts when our AI detects significant landscape changes (&gt;5%). Max 3 regions per user.
         </p>
       </div>
     </Card>

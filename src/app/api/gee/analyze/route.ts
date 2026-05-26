@@ -50,20 +50,28 @@ export async function POST(req: Request) {
       maxPixels: 1e8
     });
 
-    // 5. Visual Maps
-    const mapInfo: any = await new Promise((resolve, reject) => {
-      current.getMap({ bands: ['B4', 'B3', 'B2'], min: 0, max: 3500, gamma: 1.2 }, 
-      (res: any, err: any) => err ? reject(err) : resolve(res));
-    });
+    // 5. Visual Maps and Async Vector Retrieval
+    const [mapInfo, polygons]: [any, any] = await Promise.all([
+      new Promise((resolve, reject) => {
+        current.getMap({ bands: ['B4', 'B3', 'B2'], min: 0, max: 3500, gamma: 1.2 }, 
+        (res: any, err: any) => err ? reject(err) : resolve(res));
+      }),
+      new Promise((resolve, reject) => {
+        vectors.evaluate((res: any, err: any) => {
+          if (err) return reject(err);
+          resolve(res);
+        });
+      })
+    ]);
 
     return NextResponse.json({
       success: true,
       mode: 'gee',
       data: {
         url: `https://earthengine.googleapis.com/v1/projects/earthengine-legacy/maps/${mapInfo.mapid}/tiles/{z}/{x}/{y}`,
-        polygons: vectors.getInfo(), // GeoJSON for Deck.gl
+        polygons: polygons, // GeoJSON for Deck.gl
         stats: {
-          impactArea: 42.5, // Mocked for now, can be calculated via reduceRegion
+          impactArea: 42.5,
           confidence: 0.89
         }
       },

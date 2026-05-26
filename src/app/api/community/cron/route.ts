@@ -1,3 +1,4 @@
+import '@/lib/silence-warnings';
 import { Redis } from '@upstash/redis';
 import { initGEE } from '@/lib/gee/client';
 import ee from '@google/earthengine';

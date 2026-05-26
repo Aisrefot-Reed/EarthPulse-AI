@@ -1,3 +1,4 @@
+import '@/lib/silence-warnings';
 import { NextResponse } from 'next/server';
 import { initGEE } from '@/lib/gee/client';
 import ee from '@google/earthengine';

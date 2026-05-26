@@ -57,6 +57,14 @@
   @apply bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
 }
 
+.map-dimmer {
+  @apply absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] transition-all duration-500 pointer-events-none opacity-0 z-[45];
+}
+
+.map-dimmer.active {
+  @apply opacity-100 pointer-events-auto;
+}
+
 /* Fix for MapLibre controls visibility and styling */
 .maplibregl-ctrl-group {
   @apply !bg-white/80 !backdrop-blur-md !border !border-white/50 !shadow-sm !rounded-xl overflow-hidden;

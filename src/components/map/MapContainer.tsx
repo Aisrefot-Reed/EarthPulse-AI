@@ -23,6 +23,8 @@ import {
   Layers, Eye, Share2, Sparkles, X, ChevronRight, ChevronLeft 
 } from 'lucide-react';
 
+import { toPng } from 'html-to-image';
+
 const INITIAL_VIEW_STATE = {
   longitude: -62.2159,
   latitude: -3.4653,
@@ -32,6 +34,7 @@ const INITIAL_VIEW_STATE = {
 };
 
 export default function MapContainer() {
+  const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [layersVisibility, setLayersVisibility] = useState({
     base: true,
@@ -40,6 +43,7 @@ export default function MapContainer() {
   });
   const [aiOpacity, setAiOpacity] = useState(0.7);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [mapScreenshot, setMapScreenshot] = useState<string | undefined>();
   
   // Story Mode State
   const [isStoryMode, setIsStoryMode] = useState(false);
@@ -55,6 +59,22 @@ export default function MapContainer() {
     });
     const bounds = viewport.getBounds(); 
     analyzeArea(bounds, ['2023-01-01', '2023-12-31']);
+  };
+
+  const handleOpenShare = async () => {
+    if (mapContainerRef.current) {
+      try {
+        const dataUrl = await toPng(mapContainerRef.current, { 
+          quality: 0.8, 
+          cacheBust: true,
+          skipFonts: true // Speed up capture
+        });
+        setMapScreenshot(dataUrl);
+      } catch (err) {
+        console.error("Screenshot failed", err);
+      }
+    }
+    setShowShareDialog(true);
   };
 
   const startStoryMode = () => {

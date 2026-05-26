@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     });
 
     // 5. Visual Maps and Async Vector Retrieval
-    console.log(`[GEE] Starting evaluate and getMap for BBox:`, bbox);
+    console.log(`[GEE BACKEND] Starting evaluate and getMap for BBox:`, bbox);
     const [mapInfo, rawPolygons]: [any, any] = await Promise.all([
       new Promise((resolve, reject) => {
         current.getMap({ bands: ['B4', 'B3', 'B2'], min: 0, max: 3500, gamma: 1.2 }, 
@@ -65,15 +65,16 @@ export async function POST(req: Request) {
       })
     ]);
 
-    let polygons = rawPolygons;
-    if (!polygons || !polygons.features) {
-      polygons = { type: 'FeatureCollection', features: [] };
-    }
+    // Construct a STRICTLY valid GeoJSON FeatureCollection
+    const validGeoJSON = {
+      type: "FeatureCollection",
+      features: (rawPolygons && Array.isArray(rawPolygons.features)) ? rawPolygons.features : []
+    };
 
-    console.log(`[GEE] MapInfo MapID:`, mapInfo?.mapid);
-    console.log(`[GEE] Polygons received:`, polygons.features.length, 'features');
+    console.log(`[GEE BACKEND] MapInfo MapID:`, mapInfo?.mapid);
+    console.log(`[GEE BACKEND] Validated Polygons:`, validGeoJSON.features.length, 'features found from GEE');
 
-    // MOCK: Inject a glowing bounding box so the user ALWAYS sees that the layer is working
+    // MOCK: Inject a bounding box so the user ALWAYS sees that the layer is working
     const bboxPolygon = {
       type: "Feature",
       properties: { change: 1, isMock: true },
@@ -88,24 +89,29 @@ export async function POST(req: Request) {
         ]]
       }
     };
-    polygons.features.push(bboxPolygon);
+    validGeoJSON.features.push(bboxPolygon);
 
     const url = mapInfo?.urlFormat || `https://earthengine.googleapis.com/v1/projects/earthengine-legacy/maps/${mapInfo.mapid}/tiles/{z}/{x}/{y}`;
-    console.log(`[GEE] Tile URL generated:`, url);
+    console.log(`[GEE BACKEND] Tile URL generated:`, url);
 
-    return NextResponse.json({
+    const responsePayload = {
       success: true,
       mode: 'gee',
       data: {
         url: url,
-        polygons: polygons, // GeoJSON for Deck.gl
+        polygons: validGeoJSON, // Guaranteed valid GeoJSON for Deck.gl
         stats: {
-          impactArea: (polygons.features.length - 1) * 0.4, // exclude mock
+          impactArea: (validGeoJSON.features.length - 1) * 0.4, // exclude mock
           confidence: 0.89
         }
       },
       meta: { processingTime: Date.now() - startTime }
-    });
+    };
+    
+    // Log a truncated version of the payload to verify structure
+    console.log(`[GEE BACKEND] Sending payload with mode: gee, features count:`, responsePayload.data.polygons.features.length);
+
+    return NextResponse.json(responsePayload);
 
   } catch (error: any) {
     console.error('[GEE ERROR]:', error.message);

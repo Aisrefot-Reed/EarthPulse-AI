@@ -20,55 +20,58 @@ interface AnalysisResult {
 export function useAreaAnalysis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [credits, setCredits] = useState(5);
+  const [credits, setCredits] = useState(20); // Sync with new relaxed limit
   
   const analyzeArea = useCallback(async (bbox: number[], dateRange: [string, string]) => {
     setLoading(true);
     try {
+      // 1. GEE Analyze (Base Imagery)
       const geeResponse = await fetch('/api/gee/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bbox, dateStart: dateRange[0], dateEnd: dateRange[1] })
       });
       
-      const geeData = await geeResponse.json();
-      if (!geeData.success) throw new Error(geeData.error);
+      const geeJson = await geeResponse.json();
+      if (!geeJson.success) throw new Error(geeJson.error);
 
+      // 2. AI Infer (Change Mask)
       const aiResponse = await fetch('/api/ai/infer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           bbox, 
-          imageUrl: geeData.data.url.replace('{z}/{x}/{y}', '10/500/500'), // Placeholder for specific tile
+          imageUrl: geeJson.data.url.replace('{z}/{x}/{y}', '10/500/500'), // Placeholder logic
           cacheKey: `${bbox.join(',')}-${dateRange.join(',')}`
         })
       });
 
-      const aiData = await aiResponse.json();
+      const aiJson = await aiResponse.json();
 
-      if (aiData.success && aiData.mode === 'prithvi') {
-        // Convert raw AI mask to visible image
-        const processedImage = maskToDataURL(aiData.data, 224, 224);
+      if (aiJson.success && aiJson.mode === 'prithvi') {
+        const processedImage = maskToDataURL(aiJson.data, 224, 224);
         setResult({
-          ...aiData,
+          success: true,
+          mode: 'prithvi',
+          data: geeJson.data, // Imagery from GEE
           processedImage,
           bbox,
-          data: geeData.data // Keep GEE tiles as base
+          meta: aiJson.meta
         });
-        if (!aiData.meta.cached) setCredits(prev => Math.max(0, prev - 1));
+        if (!aiJson.meta.cached) setCredits(prev => Math.max(0, prev - 1));
       } else {
+        // Fallback to pure GEE imagery
         setResult({
           success: true,
           mode: 'gee',
-          data: geeData.data,
+          data: geeJson.data,
           bbox,
-          meta: { processingTime: geeData.meta.processingTime }
+          meta: { processingTime: geeJson.meta.processingTime }
         });
-        if (aiData.error) toast.info(aiData.error);
       }
 
     } catch (error: any) {
-      console.error('Analysis failed:', error);
+      console.error('Analysis flow failed:', error);
       toast.error(`Analysis failed: ${error.message}`);
     } finally {
       setLoading(false);

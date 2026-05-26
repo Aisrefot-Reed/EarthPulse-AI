@@ -1,37 +1,41 @@
-import { BitmapLayer } from '@deck.gl/layers';
+import { GeoJsonLayer } from '@deck.gl/layers';
 
 /**
- * AI Prediction Layer
- * Renders the processed mask image over the analyzed bounding box.
+ * AI / Change Prediction Layer
+ * Uses GeoJSON Polygons for a professional, clean look with strokes.
  */
 export function createAILayer(result: any, visible: boolean, opacity: number) {
-  if (!result || !visible || !result.processedImage || !result.bbox) return null;
+  if (!result || !visible || !result.data?.polygons) return null;
 
-  return new BitmapLayer({
-    id: 'ai-prediction-layer',
-    image: result.processedImage,
-    bounds: result.bbox, // [west, south, east, north]
-    opacity: opacity,
+  return new GeoJsonLayer({
+    id: 'ai-change-polygons',
+    data: result.data.polygons,
+    filled: true,
+    stroked: true,
+    getFillColor: [220, 38, 38, opacity * 255], // Red-600
+    getLineColor: [185, 28, 28, 255],           // Red-700
+    getLineWidth: 2,
+    lineWidthMinPixels: 1,
+    opacity: 1, // Controlled via getFillColor alpha
     pickable: true,
     updateTriggers: {
-      image: result.processedImage,
-      opacity: opacity
+      getFillColor: [opacity]
     }
   });
 }
 
 /**
- * Uncertainty Layer (Confidence Heatmap)
- * In v1, we use the same mask but with a different color ramp logic if needed.
+ * Risk Map (Heatmap style logic)
  */
 export function createUncertaintyLayer(result: any, visible: boolean) {
-  if (!result || !visible || !result.processedImage || !result.bbox) return null;
+  if (!result || !visible || !result.data?.polygons) return null;
 
-  return new BitmapLayer({
+  return new GeoJsonLayer({
     id: 'uncertainty-heatmap',
-    image: result.processedImage,
-    bounds: result.bbox,
+    data: result.data.polygons,
+    filled: true,
+    stroked: false,
+    getFillColor: [245, 158, 11, 100], // Amber-500
     opacity: 0.5,
-    tintColor: [255, 165, 0], // Amber tint for uncertainty visualization
   });
 }

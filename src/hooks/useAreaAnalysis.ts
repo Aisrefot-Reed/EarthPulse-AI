@@ -48,8 +48,12 @@ export function useAreaAnalysis() {
 
       const aiJson = await aiResponse.json();
 
+      console.log('[FRONTEND] GEE Response:', geeJson);
+      console.log('[FRONTEND] AI Response:', aiJson);
+
       if (aiJson.success && aiJson.mode === 'prithvi') {
         const processedImage = maskToDataURL(aiJson.data, 224, 224);
+        console.log('[FRONTEND] Prithvi mode activated. Processed image length:', processedImage.length);
         setResult({
           success: true,
           mode: 'prithvi',
@@ -60,18 +64,19 @@ export function useAreaAnalysis() {
         });
         if (!aiJson.meta.cached) setCredits(prev => Math.max(0, prev - 1));
       } else {
+        console.log('[FRONTEND] Fallback to GEE mode activated. Setting result with data:', geeJson.data);
         // Fallback to pure GEE imagery
         setResult({
           success: true,
           mode: 'gee',
           data: geeJson.data,
           bbox,
-          meta: { processingTime: geeJson.meta.processingTime }
+          meta: { processingTime: geeJson.meta?.processingTime || 0 }
         });
       }
 
     } catch (error: any) {
-      console.error('Analysis flow failed:', error);
+      console.error('[FRONTEND] Analysis flow failed:', error);
       toast.error(`Analysis failed: ${error.message}`);
     } finally {
       setLoading(false);

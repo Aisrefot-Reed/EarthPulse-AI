@@ -4,6 +4,8 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { maskToDataURL } from '@/utils/visualize';
 
+export type AnalysisMode = 'prithvi' | 'gee';
+
 interface AnalysisResult {
   success: boolean;
   mode: 'prithvi' | 'gee';
@@ -20,12 +22,16 @@ interface AnalysisResult {
 export function useAreaAnalysis() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [credits, setCredits] = useState(20); // Sync with new relaxed limit
+  const [credits, setCredits] = useState(20);
   
-  const analyzeArea = useCallback(async (bbox: number[], dateRange: [string, string]) => {
+  const analyzeArea = useCallback(async (
+    bbox: number[], 
+    dateRange: [string, string], 
+    requestedMode: AnalysisMode = 'prithvi'
+  ) => {
     setLoading(true);
     try {
-      // 1. GEE Analyze (Base Imagery)
+      // 1. GEE Analyze (Always needed for base imagery and baseline)
       const geeResponse = await fetch('/api/gee/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -35,37 +41,38 @@ export function useAreaAnalysis() {
       const geeJson = await geeResponse.json();
       if (!geeJson.success) throw new Error(geeJson.error);
 
-      // 2. AI Infer (Change Mask)
-      const aiResponse = await fetch('/api/ai/infer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          bbox, 
-          imageUrl: geeJson.data.url.replace('{z}/{x}/{y}', '10/500/500'), // Placeholder logic
-          cacheKey: `${bbox.join(',')}-${dateRange.join(',')}`
-        })
-      });
-
-      const aiJson = await aiResponse.json();
+      // 2. AI Infer (Only if requested and not in pure GEE mode)
+      let aiJson: any = { success: false };
+      
+      if (requestedMode === 'prithvi') {
+        const aiResponse = await fetch('/api/ai/infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            bbox, 
+            imageUrl: geeJson.data.url.replace('{z}/{x}/{y}', '10/500/500'),
+            cacheKey: `${bbox.join(',')}-${dateRange.join(',')}`
+          })
+        });
+        aiJson = await aiResponse.json();
+      }
 
       console.log('[FRONTEND] GEE Response:', geeJson);
       console.log('[FRONTEND] AI Response:', aiJson);
 
-      if (aiJson.success && aiJson.mode === 'prithvi') {
+      if (requestedMode === 'prithvi' && aiJson.success && aiJson.mode === 'prithvi') {
         const processedImage = maskToDataURL(aiJson.data, 224, 224);
-        console.log('[FRONTEND] Prithvi mode activated. Processed image length:', processedImage.length);
         setResult({
           success: true,
           mode: 'prithvi',
-          data: geeJson.data, // Imagery from GEE
+          data: geeJson.data,
           processedImage,
           bbox,
           meta: aiJson.meta
         });
         if (!aiJson.meta.cached) setCredits(prev => Math.max(0, prev - 1));
       } else {
-        console.log('[FRONTEND] Fallback to GEE mode activated. Setting result with data:', geeJson.data);
-        // Fallback to pure GEE imagery
+        // Fallback to pure GEE imagery or direct GEE request
         setResult({
           success: true,
           mode: 'gee',
@@ -73,7 +80,8 @@ export function useAreaAnalysis() {
           bbox,
           meta: { processingTime: geeJson.meta?.processingTime || 0 }
         });
-        if (aiJson.error) {
+        
+        if (requestedMode === 'prithvi' && aiJson.error) {
           toast.info(aiJson.error);
         }
       }

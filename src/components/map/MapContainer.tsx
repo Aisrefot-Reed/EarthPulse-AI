@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Map, { NavigationControl, FullscreenControl, ScaleControl } from 'react-map-gl/maplibre';
 import DeckGL from '@deck.gl/react';
 import { TileLayer } from '@deck.gl/geo-layers';
@@ -9,7 +9,7 @@ import { WebMercatorViewport } from '@deck.gl/core';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { useAreaAnalysis } from '@/hooks/useAreaAnalysis';
+import { useAreaAnalysis, AnalysisMode } from '@/hooks/useAreaAnalysis';
 import { createAILayer, createUncertaintyLayer } from './layers';
 import { NarrativeOverlay } from '../story/NarrativeOverlay';
 import { ShareCardDialog } from '../ui/ShareCardDialog';
@@ -20,7 +20,8 @@ import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { 
   Loader2, Zap, AlertTriangle, Map as MapIcon, 
-  Layers, Eye, Share2, Sparkles, X, ChevronRight, ChevronLeft 
+  Layers, Eye, Share2, Sparkles, X, ChevronRight, ChevronLeft,
+  Cpu, Activity
 } from 'lucide-react';
 
 import { toPng } from 'html-to-image';
@@ -45,6 +46,23 @@ export default function MapContainer() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [mapScreenshot, setMapScreenshot] = useState<string | undefined>();
   
+  // Manual Mode Selection
+  const [requestedMode, setRequestedMode] = useState<AnalysisMode>('prithvi');
+
+  // Load mode from localStorage on mount
+  useEffect(() => {
+    const savedMode = localStorage.getItem('earthpulse_analysis_mode') as AnalysisMode;
+    if (savedMode === 'prithvi' || savedMode === 'gee') {
+      setRequestedMode(savedMode);
+    }
+  }, []);
+
+  // Save mode to localStorage when it changes
+  const toggleMode = (mode: AnalysisMode) => {
+    setRequestedMode(mode);
+    localStorage.setItem('earthpulse_analysis_mode', mode);
+  };
+  
   // Story Mode State
   const [isStoryMode, setIsStoryMode] = useState(false);
   const [currentEventIndex, setCurrentEventIndex] = useState(-1);
@@ -58,7 +76,7 @@ export default function MapContainer() {
       ...viewState
     });
     const bounds = viewport.getBounds(); 
-    analyzeArea(bounds, ['2023-01-01', '2023-12-31']);
+    analyzeArea(bounds, ['2023-01-01', '2023-12-31'], requestedMode);
   };
 
   const handleOpenShare = async () => {
@@ -67,7 +85,7 @@ export default function MapContainer() {
         const dataUrl = await toPng(mapContainerRef.current, { 
           quality: 0.8, 
           cacheBust: true,
-          skipFonts: true // Speed up capture
+          skipFonts: true 
         });
         setMapScreenshot(dataUrl);
       } catch (err) {
@@ -95,7 +113,8 @@ export default function MapContainer() {
         event.coordinates.longitude + 0.05,
         event.coordinates.latitude + 0.05
       ];
-      analyzeArea(bbox, [event.date, event.date]);
+      // In Story Mode, we always try AI for maximum impact
+      analyzeArea(bbox, [event.date, event.date], 'prithvi');
     } else {
       setIsStoryMode(false);
       setCurrentEventIndex(-1);
@@ -127,7 +146,7 @@ export default function MapContainer() {
   }, [result, layersVisibility, aiOpacity]);
 
   return (
-    <div className="relative w-full h-screen bg-slate-50 overflow-hidden font-sans select-none">
+    <div className="relative w-full h-screen bg-slate-50 overflow-hidden font-sans select-none" ref={mapContainerRef}>
       {/* 0 & 10: Map & Data Layers */}
       <DeckGL
         viewState={viewState}
@@ -175,17 +194,17 @@ export default function MapContainer() {
                <div className="w-px h-5 bg-slate-200" />
                <Button 
                   onClick={handleAnalyze} 
-                  disabled={loading || credits === 0}
+                  disabled={loading || (requestedMode === 'prithvi' && credits === 0)}
                   className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9px] uppercase tracking-wider rounded-lg px-3"
                >
                   {loading ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Sparkles className="w-3 h-3 mr-1.5" />}
-                  {loading ? "Busy" : "Analyze"}
+                  {loading ? "Busy" : "Analyze Area"}
                </Button>
             </div>
 
             <Button 
               variant="ghost" 
-              onClick={() => setShowShareDialog(true)}
+              onClick={handleOpenShare}
               disabled={!result}
               className="h-11 w-11 glass-panel rounded-xl flex items-center justify-center border-white/40 shadow-lg text-slate-600 hover:text-emerald-600 transition-colors"
             >
@@ -229,7 +248,7 @@ export default function MapContainer() {
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Global Timeline</div>
                   <div className="flex items-center gap-1">
                      <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-slate-400 hover:text-emerald-600"><ChevronLeft className="w-4 h-4"/></Button>
-                     <span className="text-xs font-black text-slate-700 font-mono px-2">2024.Q2</span>
+                     <span className="text-sm font-black text-slate-700 font-mono px-2">2024.Q2</span>
                      <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-slate-400 hover:text-emerald-600"><ChevronRight className="w-4 h-4"/></Button>
                   </div>
                 </div>
@@ -271,6 +290,33 @@ export default function MapContainer() {
             </div>
             
             <div className="space-y-8">
+              {/* Manual Mode Toggle */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Analysis Engine</label>
+                <div className="flex p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
+                   <button 
+                      onClick={() => toggleMode('prithvi')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-bold transition-all",
+                        requestedMode === 'prithvi' ? "bg-white text-emerald-600 shadow-sm border border-emerald-100" : "text-slate-400 hover:text-slate-600"
+                      )}
+                   >
+                      <Cpu className="w-3 h-3" />
+                      Premium AI
+                   </button>
+                   <button 
+                      onClick={() => toggleMode('gee')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-bold transition-all",
+                        requestedMode === 'gee' ? "bg-white text-blue-600 shadow-sm border border-blue-100" : "text-slate-400 hover:text-slate-600"
+                      )}
+                   >
+                      <Activity className="w-3 h-3" />
+                      Standard GEE
+                   </button>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Visualization</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -309,19 +355,12 @@ export default function MapContainer() {
               {result && (
                 <div className="pt-6 border-t border-slate-100 space-y-4">
                    <div className="flex flex-col gap-1.5">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Analysis Region</span>
-                      <span className="text-[11px] font-semibold text-slate-700 truncate bg-slate-50 p-2 rounded-lg border border-slate-100/50">{result.bbox.map(c => c.toFixed(3)).join(', ')}</span>
-                   </div>
-                   <div className="flex flex-col gap-2">
-                      <div className="flex justify-between items-center">
-                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Analysis Engine</span>
-                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Latency</span>
-                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Current Result</span>
                       <div className="flex justify-between items-center p-3 rounded-xl border bg-white shadow-sm">
                          {result.mode === 'prithvi' ? (
                            <div className="flex items-center gap-2">
                              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/50 px-2 py-1 rounded-md border border-emerald-200">Premium AI (Prithvi-EO)</span>
+                             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/50 px-2 py-1 rounded-md border border-emerald-200">Premium (AI)</span>
                            </div>
                          ) : (
                            <div className="flex items-center gap-2">
@@ -355,6 +394,7 @@ export default function MapContainer() {
               <ShareCardDialog 
                 regionName={result.mode === 'prithvi' ? "Premium Analysis" : "GEE Snapshot"}
                 stats={{ hectares: 450, co2: 120, risk: result.mode === 'prithvi' ? "High" : "Calculated" }}
+                mapScreenshot={mapScreenshot}
               />
            </div>
         </div>

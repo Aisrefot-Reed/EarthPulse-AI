@@ -73,6 +73,9 @@ export function useAreaAnalysis() {
           bbox,
           meta: { processingTime: geeJson.meta?.processingTime || 0 }
         });
+        if (aiJson.error) {
+          toast.info(aiJson.error);
+        }
       }
 
     } catch (error: any) {

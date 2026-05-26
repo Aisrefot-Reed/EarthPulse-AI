@@ -312,14 +312,24 @@ export default function MapContainer() {
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Analysis Region</span>
                       <span className="text-[11px] font-semibold text-slate-700 truncate bg-slate-50 p-2 rounded-lg border border-slate-100/50">{result.bbox.map(c => c.toFixed(3)).join(', ')}</span>
                    </div>
-                   <div className="p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 flex justify-between items-center">
-                      <div className="flex flex-col">
-                         <span className="text-[9px] font-bold text-emerald-600 uppercase">Engine</span>
-                         <span className="text-[11px] font-bold text-emerald-900">{result.mode === 'prithvi' ? 'Prithvi-EO' : 'GEE Baseline'}</span>
+                   <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Analysis Engine</span>
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Latency</span>
                       </div>
-                      <div className="flex flex-col items-end text-right">
-                         <span className="text-[9px] font-bold text-emerald-600 uppercase">LATENCY</span>
-                         <span className="text-[11px] font-bold text-emerald-900">{result.meta.processingTime}ms</span>
+                      <div className="flex justify-between items-center p-3 rounded-xl border bg-white shadow-sm">
+                         {result.mode === 'prithvi' ? (
+                           <div className="flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/50 px-2 py-1 rounded-md border border-emerald-200">Premium AI (Prithvi-EO)</span>
+                           </div>
+                         ) : (
+                           <div className="flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-blue-500" />
+                             <span className="text-[11px] font-bold text-blue-700 bg-blue-100/50 px-2 py-1 rounded-md border border-blue-200">Standard (GEE)</span>
+                           </div>
+                         )}
+                         <span className="text-[11px] font-bold text-slate-600 font-mono">{result.meta.processingTime}ms</span>
                       </div>
                    </div>
                 </div>

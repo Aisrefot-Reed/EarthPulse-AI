@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       console.warn('[GEE] No cloud-free images found in current range.');
       return NextResponse.json({ 
         success: false, 
-        error: 'No satellite data found for this region/date. Try a larger area or different dates.' 
+        error: 'В выбранной области мало чистых спутниковых снимков. Попробуйте увеличить область или выбрать другой период.' 
       }, { status: 200 });
     }
 

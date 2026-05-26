@@ -114,7 +114,7 @@ export default function MapContainer() {
         onViewStateChange={({ viewState }) => setViewState(viewState as any)}
         controller={true}
         layers={layers}
-        style={{ zIndex: 0 }}
+        style={{ zIndex: '0' }}
       >
         <Map
           mapLib={maplibregl as any}

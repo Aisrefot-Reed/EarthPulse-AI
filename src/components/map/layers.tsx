@@ -1,41 +1,50 @@
 import { GeoJsonLayer } from '@deck.gl/layers';
 
 /**
- * AI / Change Prediction Layer
- * Uses GeoJSON Polygons for a professional, clean look with strokes.
+ * Advanced Layer Factory
+ * Dynamically colors polygons based on analysis type (Fire = Orange, Flood = Blue, etc.)
  */
 export function createAILayer(result: any, visible: boolean, opacity: number) {
   if (!result || !visible || !result.data?.polygons) return null;
 
+  const analysisType = result.data.analysisInfo?.type || 'deforestation';
+  
+  // Dynamic color selection
+  let fillColor = [220, 38, 38, opacity * 255]; // Default Red
+  let lineColor = [185, 28, 28, 255];
+
+  if (analysisType === 'flooding') {
+    fillColor = [14, 165, 233, opacity * 255]; // Sky Blue
+    lineColor = [3, 105, 161, 255];
+  } else if (analysisType === 'wildfires') {
+    fillColor = [249, 115, 22, opacity * 255]; // Orange
+    lineColor = [194, 65, 12, 255];
+  }
+
   return new GeoJsonLayer({
-    id: 'ai-change-polygons',
+    id: `change-layer-${analysisType}`,
     data: result.data.polygons,
     filled: true,
     stroked: true,
-    getFillColor: [220, 38, 38, opacity * 255], // Red-600
-    getLineColor: [185, 28, 28, 255],           // Red-700
+    getFillColor: fillColor,
+    getLineColor: lineColor,
     getLineWidth: 2,
     lineWidthMinPixels: 1,
-    opacity: 1, // Controlled via getFillColor alpha
     pickable: true,
     updateTriggers: {
-      getFillColor: [opacity]
+      getFillColor: [opacity, analysisType]
     }
   });
 }
 
-/**
- * Risk Map (Heatmap style logic)
- */
 export function createUncertaintyLayer(result: any, visible: boolean) {
   if (!result || !visible || !result.data?.polygons) return null;
-
   return new GeoJsonLayer({
     id: 'uncertainty-heatmap',
     data: result.data.polygons,
     filled: true,
     stroked: false,
-    getFillColor: [245, 158, 11, 100], // Amber-500
+    getFillColor: [245, 158, 11, 100],
     opacity: 0.5,
   });
 }

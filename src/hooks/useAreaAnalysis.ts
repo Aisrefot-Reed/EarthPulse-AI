@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { maskToDataURL } from '@/utils/visualize';
 
 export type AnalysisMode = 'prithvi' | 'gee';
+export type AnalysisType = 'deforestation' | 'wildfires' | 'flooding';
 
 interface AnalysisResult {
   success: boolean;
@@ -27,40 +28,37 @@ export function useAreaAnalysis() {
   const analyzeArea = useCallback(async (
     bbox: number[], 
     dateRange: [string, string], 
-    requestedMode: AnalysisMode = 'prithvi'
+    requestedMode: AnalysisMode = 'prithvi',
+    analysisType: AnalysisType = 'deforestation'
   ) => {
     setLoading(true);
     try {
-      // 1. GEE Analyze (Always needed for base imagery and baseline)
+      // 1. GEE Analyze (Base Imagery and Logic)
       const geeResponse = await fetch('/api/gee/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bbox, dateStart: dateRange[0], dateEnd: dateRange[1] })
+        body: JSON.stringify({ bbox, dateStart: dateRange[0], dateEnd: dateRange[1], analysisType })
       });
       
       const geeJson = await geeResponse.json();
-      if (!geeJson.success) throw new Error(geeJson.error);
+      if (!geeJson.success) {
+        toast.info(geeJson.error || 'Analysis returned no results.');
+        setLoading(false);
+        return;
+      }
 
-      // 2. AI Infer (Only if requested and not in pure GEE mode)
+      // 2. AI Infer (Simulated/Fallback)
       let aiJson: any = { success: false };
-      
       if (requestedMode === 'prithvi') {
         const aiResponse = await fetch('/api/ai/infer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            bbox, 
-            imageUrl: geeJson.data.url.replace('{z}/{x}/{y}', '10/500/500'),
-            cacheKey: `${bbox.join(',')}-${dateRange.join(',')}`
-          })
+          body: JSON.stringify({ bbox, analysisType })
         });
         aiJson = await aiResponse.json();
       }
 
-      console.log('[FRONTEND] GEE Response:', geeJson);
-      console.log('[FRONTEND] AI Response:', aiJson);
-
-      if (requestedMode === 'prithvi' && aiJson.success && aiJson.mode === 'prithvi') {
+      if (requestedMode === 'prithvi' && aiJson.success && aiJson.mode === 'prithvi' && aiJson.data) {
         const processedImage = maskToDataURL(aiJson.data, 224, 224);
         setResult({
           success: true,
@@ -72,7 +70,6 @@ export function useAreaAnalysis() {
         });
         if (!aiJson.meta.cached) setCredits(prev => Math.max(0, prev - 1));
       } else {
-        // Fallback to pure GEE imagery or direct GEE request
         setResult({
           success: true,
           mode: 'gee',
@@ -80,15 +77,11 @@ export function useAreaAnalysis() {
           bbox,
           meta: { processingTime: geeJson.meta?.processingTime || 0 }
         });
-        
-        if (requestedMode === 'prithvi' && aiJson.error) {
-          toast.info(aiJson.error);
-        }
       }
 
     } catch (error: any) {
-      console.error('[FRONTEND] Analysis flow failed:', error);
-      toast.error(`Analysis failed: ${error.message}`);
+      console.error('[FRONTEND] Analysis failed:', error);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }

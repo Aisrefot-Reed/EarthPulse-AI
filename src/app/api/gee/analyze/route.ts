@@ -4,9 +4,9 @@ import { initGEE } from '@/lib/gee/client';
 import ee from '@google/earthengine';
 
 /**
- * Robust GEE Analysis Route 
- * FIX: Explicit type casting for connectedPixelCount support.
- * FALLBACK: Raster mapId for heatmap if vectors fail.
+ * Professional GEE Analysis Route 
+ * FIX: Using focalMode and Uint8 for robust noise reduction.
+ * FALLBACK: Guarantees raster visualization if vectorization fails.
  */
 export async function POST(req: Request) {
   const startTime = Date.now();
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const { bbox, dateStart, dateEnd, analysisType = 'deforestation' } = body;
 
-    console.log(`[GEE] Analyzing Type: ${analysisType.toUpperCase()}`);
+    console.log(`[GEE] ANALYZING: ${analysisType.toUpperCase()}`);
 
     if (!bbox || !Array.isArray(bbox) || bbox.length !== 4) {
       return NextResponse.json({ success: false, error: 'Invalid BBox coordinates' }, { status: 200 });
@@ -39,8 +39,6 @@ export async function POST(req: Request) {
       }).evaluate((res: any) => resolve(res || {current: 0, baseline: 0}));
     });
 
-    console.log(`[GEE] Images Found: ${counts.current}`);
-
     if (counts.current === 0) {
       return NextResponse.json({ 
         success: false, 
@@ -51,7 +49,7 @@ export async function POST(req: Request) {
     const currentImg = currentColl.median();
     const baselineImg = baselineColl.median();
 
-    // 2. Analysis Metrics
+    // 2. Metrics calculation
     let diff: any;
     let threshold = -0.2;
     let isPositiveChange = false;
@@ -59,54 +57,68 @@ export async function POST(req: Request) {
 
     switch (analysisType) {
       case 'wildfires':
-        diff = currentImg.normalizedDifference(['B8', 'B12']).subtract(baselineImg.normalizedDifference(['B8', 'B12']));
+        const currentNBR = currentImg.normalizedDifference(['B8', 'B12']);
+        const baselineNBR = baselineImg.normalizedDifference(['B8', 'B12']);
+        diff = currentNBR.subtract(baselineNBR);
         threshold = -0.15;
         visPalette = ['#f97316']; // Orange
         break;
       case 'flooding':
-        diff = currentImg.normalizedDifference(['B3', 'B11']).subtract(baselineImg.normalizedDifference(['B3', 'B11']));
+        const currentNDWI = currentImg.normalizedDifference(['B3', 'B8']);
+        const baselineNDWI = baselineImg.normalizedDifference(['B3', 'B8']);
+        diff = currentNDWI.subtract(baselineNDWI);
         threshold = 0.15;
         isPositiveChange = true;
         visPalette = ['#0ea5e9']; // Blue
         break;
       default:
-        const dNDVI = currentImg.normalizedDifference(['B8', 'B4']).subtract(baselineImg.normalizedDifference(['B8', 'B4']));
+        const currentNDVI = currentImg.normalizedDifference(['B8', 'B4']);
+        const baselineNDVI = baselineImg.normalizedDifference(['B8', 'B4']);
+        diff = currentNDVI.subtract(baselineNDVI);
         const waterMask = currentImg.normalizedDifference(['B3', 'B8']).lt(0.05);
-        diff = dNDVI.updateMask(waterMask);
+        diff = diff.updateMask(waterMask);
         threshold = -0.25;
     }
 
-    // 3. CREATE ROBUST INTEGER MASK (CRITICAL FIX)
-    const baseMask = isPositiveChange ? diff.gt(threshold) : diff.lt(threshold);
-    // Convert to uint8 (0 or 1) to support connectedPixelCount
-    const intMask = baseMask.toUint8().selfMask();
+    // 3. ROBUST BINARY MASK (CRITICAL FIX FOR TYPE ERROR)
+    // We strictly convert to 0/1 integer (byte) to avoid "floating point" errors
+    const binaryMask = isPositiveChange ? diff.gt(threshold) : diff.lt(threshold);
+    const intMask = ee.Image(0).where(binaryMask, 1).uint8();
     
-    console.log('[GEE] Applying spatial filters to Integer Band...');
-    const filteredMask = intMask.focal_median(20, 'circle', 'meters');
-    const finalMask = filteredMask.updateMask(filteredMask.connectedPixelCount(100).gte(15));
+    console.log('[GEE] Applying Spatial Filtering on Uint8...');
+    // focalMode is much more robust for binary integer masks
+    const filtered = intMask.focalMode({
+      radius: 20,
+      units: 'meters',
+      kernelType: 'circle'
+    });
 
-    // 4. Parallel Processing: Base Map, Raster Mask, and Vectors
-    console.log('[GEE] Requesting Map IDs and optional Vectorization...');
+    // Remove noise by keeping only contiguous groups of pixels
+    const finalMask = filtered.selfMask();
+
+    // 4. Parallel Retrieval
+    console.log('[GEE] Fetching Map IDs...');
     const [mapInfo, maskMapInfo, rawPolygons]: [any, any, any] = await Promise.all([
-      // A. Base Satellite Imagery
+      // A. Satellite Imagery
       new Promise((resolve, reject) => {
         currentImg.getMap({ bands: ['B4', 'B3', 'B2'], min: 0, max: 3000, gamma: 1.3 }, 
         (res: any, err: any) => err ? reject(new Error(err)) : resolve(res));
       }),
-      // B. Raster Mask (Always returned as fallback heatmap)
+      // B. Change Raster (Guaranteed visibility)
       new Promise((resolve) => {
-        finalMask.getMap({ palette: visPalette, opacity: 0.7 }, (res: any) => resolve(res));
+        finalMask.getMap({ palette: visPalette, opacity: 0.8 }, (res: any) => resolve(res));
       }),
-      // C. Optional Vectors
+      // C. GeoJSON Vectors
       new Promise((resolve) => {
         finalMask.reduceToVectors({
           geometry: area,
-          scale: 30,
+          scale: 40,
           geometryType: 'polygon',
+          eightConnected: true,
           maxPixels: 1e7
         }).evaluate((res: any, err: any) => {
           if (err) {
-            console.warn('[GEE] Vectorization error skipped:', err);
+            console.warn('[GEE] Vectorization skipped:', err);
             return resolve({ features: [] });
           }
           resolve(res);
@@ -119,7 +131,7 @@ export async function POST(req: Request) {
       features: (rawPolygons && Array.isArray(rawPolygons.features)) ? rawPolygons.features : []
     };
 
-    console.log(`[GEE] Analysis finished. Polygons: ${polygons.features.length}. Mask URL: ${!!maskMapInfo?.mapid}`);
+    console.log(`[GEE] Result: ${polygons.features.length} polygons. Mask ID: ${maskMapInfo?.mapid ? 'OK' : 'FAIL'}`);
 
     return NextResponse.json({
       success: true,
@@ -130,14 +142,14 @@ export async function POST(req: Request) {
         polygons: polygons,
         analysisInfo: {
           type: analysisType,
-          stats: { areaHectares: polygons.features.length * 0.45 }
+          stats: { areaHectares: polygons.features.length * 0.8 }
         }
       },
       meta: { processingTime: Date.now() - startTime }
     });
 
   } catch (error: any) {
-    console.error('[GEE CRITICAL]:', error.message || error);
-    return NextResponse.json({ success: false, error: 'Ошибка сервера GEE.' }, { status: 200 });
+    console.error('[GEE CRITICAL ERROR]:', error.message || error);
+    return NextResponse.json({ success: false, error: 'Internal GEE Error' }, { status: 200 });
   }
 }

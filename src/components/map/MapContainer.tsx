@@ -202,7 +202,7 @@ export default function MapContainer() {
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Opacity</label>
               <span className="text-[10px] font-bold text-slate-600">{Math.round(aiOpacity * 100)}%</span>
             </div>
-            <Slider value={[aiOpacity * 100]} onValueChange={(v) => setAiOpacity(v[0] / 100)} max={100} step={1} />
+            <Slider value={[aiOpacity * 100]} onValueChange={(v: any) => setAiOpacity(v[0] / 100)} max={100} step={1} />
           </div>
 
           {result && (

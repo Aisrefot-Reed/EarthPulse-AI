@@ -10,7 +10,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useAreaAnalysis, AnalysisMode, AnalysisType } from '@/hooks/useAreaAnalysis';
-import { createAILayer, createUncertaintyLayer } from './layers';
+import { createAILayer } from './layers';
 import { NarrativeOverlay } from '../story/NarrativeOverlay';
 import { ShareCardDialog } from '../ui/ShareCardDialog';
 import { cinematicFlyTo, STORY_EVENTS } from '@/lib/story/logic';
@@ -37,7 +37,7 @@ const INITIAL_VIEW_STATE = {
 export default function MapContainer() {
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
-  const [layersVisibility, setLayersVisibility] = useState({ base: true, ai: true, uncertainty: false });
+  const [layersVisibility, setLayersVisibility] = useState({ base: true, ai: true, raster: true });
   const [aiOpacity, setAiOpacity] = useState(0.7);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [mapScreenshot, setMapScreenshot] = useState<string | undefined>();
@@ -49,12 +49,12 @@ export default function MapContainer() {
 
   const dateRange = useMemo<[string, string]>(() => [`${currentYear}-01-01`, `${currentYear}-12-31`], [currentYear]);
 
+  const { analyzeArea, loading, result, credits } = useAreaAnalysis();
+
   const handleAnalyze = () => {
     const viewport = new WebMercatorViewport({ width: window.innerWidth, height: window.innerHeight, ...viewState });
     analyzeArea(viewport.getBounds(), dateRange, requestedMode, analysisType);
   };
-
-  const { analyzeArea, loading, result, credits } = useAreaAnalysis();
 
   const handleOpenShare = async () => {
     if (mapContainerRef.current) {
@@ -87,6 +87,8 @@ export default function MapContainer() {
 
   const layers = useMemo(() => {
     const activeLayers = [];
+    
+    // 1. GEE Base Imagery
     if (result?.data?.url) {
       activeLayers.push(new TileLayer({
         id: 'gee-base', data: result.data.url, visible: layersVisibility.base,
@@ -96,8 +98,25 @@ export default function MapContainer() {
         }
       }));
     }
+
+    // 2. GEE Raster Mask Fallback (Always present for heatmap look)
+    if (result?.data?.changeUrl) {
+       activeLayers.push(new TileLayer({
+          id: 'gee-raster-mask', 
+          data: result.data.changeUrl, 
+          visible: layersVisibility.raster,
+          opacity: aiOpacity,
+          renderSubLayers: (props: any) => {
+            const { west, south, east, north } = props.tile.bbox;
+            return new BitmapLayer(props, { data: undefined, image: props.data, bounds: [west, south, east, north] });
+          }
+       }));
+    }
+
+    // 3. Pro GeoJSON Polygons
     const aiLayer = createAILayer(result, layersVisibility.ai, aiOpacity);
     if (aiLayer) activeLayers.push(aiLayer);
+
     return activeLayers;
   }, [result, layersVisibility, aiOpacity]);
 
@@ -179,11 +198,11 @@ export default function MapContainer() {
           </div>
 
           <div className="space-y-4">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Analysis Mode</label>
-            <div className="flex p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
-              <button onClick={() => setRequestedMode('prithvi')} className={cn("flex-1 py-2 rounded-xl text-[10px] font-bold transition-all", requestedMode === 'prithvi' ? "bg-white text-emerald-600 shadow-sm border border-emerald-100" : "text-slate-400")}>Premium AI</button>
-              <button onClick={() => setRequestedMode('gee')} className={cn("flex-1 py-2 rounded-xl text-[10px] font-bold transition-all", requestedMode === 'gee' ? "bg-white text-blue-600 shadow-sm border border-blue-100" : "text-slate-400")}>Standard GEE</button>
+            <div className="flex justify-between items-end">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Opacity</label>
+              <span className="text-[10px] font-bold text-slate-600">{Math.round(aiOpacity * 100)}%</span>
             </div>
+            <Slider value={[aiOpacity * 100]} onValueChange={(v) => setAiOpacity(v[0] / 100)} max={100} step={1} />
           </div>
 
           {result && (
@@ -195,10 +214,10 @@ export default function MapContainer() {
                 <span className="text-[10px] font-bold text-slate-400 font-mono">{result.meta.processingTime}ms</span>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl space-y-2">
-                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Legend</div>
-                 <div className="flex items-center gap-2">
-                    <div className={cn("w-3 h-3 rounded-sm", analysisType === 'flooding' ? "bg-blue-500" : "bg-red-500")} />
-                    <span className="text-xs font-bold text-slate-700">Significant Change detected</span>
+                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Detected Area</div>
+                 <div className="flex items-end gap-1">
+                    <span className="text-2xl font-black text-slate-800">{result.data.analysisInfo?.stats?.areaHectares.toFixed(1) || 0}</span>
+                    <span className="text-sm font-bold text-slate-400 mb-1">hectares</span>
                  </div>
               </div>
             </div>
@@ -210,8 +229,8 @@ export default function MapContainer() {
         <div className="absolute inset-0 z-50 flex items-center justify-center p-6">
            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setShowShareDialog(false)} />
            <div className="relative max-w-lg w-full">
-              <Button variant="ghost" size="icon" onClick={() => setShowShareDialog(false)} className="absolute -top-14 right-0 text-white"><X className="w-8 h-8" /></Button>
-              <ShareCardDialog regionName="Analysis Export" stats={{ hectares: 450, co2: 120, risk: "Verified" }} mapScreenshot={mapScreenshot} />
+              <Button variant="ghost" size="icon" onClick={() => setShowShareDialog(false)} className="absolute -top-14 right-0 text-white hover:bg-white/20 rounded-full"><X className="w-8 h-8" /></Button>
+              <ShareCardDialog regionName="Analysis Export" stats={{ hectares: result.data.analysisInfo?.stats?.areaHectares || 0, co2: 120, risk: "Verified" }} mapScreenshot={mapScreenshot} />
            </div>
         </div>
       )}

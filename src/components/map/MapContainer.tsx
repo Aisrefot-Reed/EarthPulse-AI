@@ -222,9 +222,24 @@ export default function MapContainer() {
             <div className="space-y-5">
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Opacity</label>
-                <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{Math.round(aiOpacity * 100)}%</span>
+                <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                  {isNaN(aiOpacity) ? '70' : Math.round(aiOpacity * 100)}%
+                </span>
               </div>
-              <Slider value={[aiOpacity * 100]} onValueChange={(v: any) => setAiOpacity(v[0] / 100)} max={100} step={1} />
+              <Slider 
+                value={[isNaN(aiOpacity) ? 70 : aiOpacity * 100]} 
+                onValueChange={(val: any) => {
+                  if (Array.isArray(val) && val.length > 0) {
+                    const newOpacity = parseFloat(val[0]) / 100;
+                    if (!isNaN(newOpacity)) {
+                      setAiOpacity(newOpacity);
+                    }
+                  }
+                }} 
+                max={100} 
+                min={0}
+                step={1} 
+              />
             </div>
             
             {result && (

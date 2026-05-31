@@ -13,6 +13,7 @@ import { useAreaAnalysis, AnalysisMode, AnalysisType } from '@/hooks/useAreaAnal
 import { createAILayer } from './layers';
 import { NarrativeOverlay } from '../story/NarrativeOverlay';
 import { ShareCardDialog } from '../ui/ShareCardDialog';
+import { AnalysisExplainer } from '../ui/AnalysisExplainer';
 import { cinematicFlyTo, STORY_EVENTS } from '@/lib/story/logic';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -21,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { 
   Loader2, Zap, AlertTriangle, Map as MapIcon, 
   Layers, Eye, Share2, Sparkles, X, ChevronRight, ChevronLeft,
-  Cpu, Activity, Flame, Droplets, TreePine
+  Cpu, Activity, Flame, Droplets, TreePine, BookOpen
 } from 'lucide-react';
 
 import { toPng } from 'html-to-image';
@@ -40,14 +41,13 @@ export default function MapContainer() {
   const [layersVisibility, setLayersVisibility] = useState({ base: true, ai: true, raster: true });
   const [aiOpacity, setAiOpacity] = useState(0.7);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showExplainer, setShowExplainer] = useState(false);
   const [mapScreenshot, setMapScreenshot] = useState<string | undefined>();
   
-  // Modes & Types
   const [requestedMode, setRequestedMode] = useState<AnalysisMode>('prithvi');
   const [analysisType, setAnalysisType] = useState<AnalysisType>('deforestation');
   const [currentYear, setCurrentYear] = useState(2024);
 
-  // Persistence
   useEffect(() => {
     const savedMode = localStorage.getItem('earthpulse_analysis_mode') as AnalysisMode;
     if (savedMode) setRequestedMode(savedMode);
@@ -77,7 +77,6 @@ export default function MapContainer() {
     setShowShareDialog(true);
   };
 
-  // Story Mode State
   const [isStoryMode, setIsStoryMode] = useState(false);
   const [currentEventIndex, setCurrentEventIndex] = useState(-1);
 
@@ -114,14 +113,18 @@ export default function MapContainer() {
           id: 'gee-raster-mask', 
           data: result.data.changeUrl, 
           visible: layersVisibility.raster,
-          opacity: aiOpacity,
+          opacity: aiOpacity, // FIX: Apply aiOpacity here
           renderSubLayers: (props: any) => {
             const { west, south, east, north } = props.tile.bbox;
             return new BitmapLayer(props, { data: undefined, image: props.data, bounds: [west, south, east, north] });
+          },
+          updateTriggers: {
+            opacity: aiOpacity
           }
        }));
     }
 
+    // FIX: Pass aiOpacity to vectors
     const aiLayer = createAILayer(result, layersVisibility.ai, aiOpacity);
     if (aiLayer) activeLayers.push(aiLayer);
 
@@ -140,7 +143,7 @@ export default function MapContainer() {
         </Map>
       </DeckGL>
 
-      <div className={cn("map-dimmer", (showShareDialog || isStoryMode) && "active-dim")} />
+      <div className={cn("map-dimmer", (showShareDialog || isStoryMode || showExplainer) && "active-dim")} />
 
       {/* Header Overlay */}
       <div className="absolute top-6 inset-x-6 z-20 flex justify-between items-start pointer-events-none">
@@ -148,18 +151,16 @@ export default function MapContainer() {
           <TreePine className="w-8 h-8 text-emerald-600" />
           <div className="flex flex-col">
             <h1 className="text-sm font-black tracking-tight text-slate-800 uppercase leading-none">EarthPulse AI</h1>
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Global Guardian v1.5</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Eco Insight Engine</span>
           </div>
         </div>
 
         <div className="flex items-center gap-3 pointer-events-auto">
           <div className="px-4 py-2 glass-panel rounded-2xl flex items-center gap-3 border-white/40 shadow-lg">
-             <div className="flex items-center gap-1.5">
-                <Zap className={cn("w-3.5 h-3.5", credits > 0 ? "text-emerald-500 fill-current" : "text-slate-400")} />
-                <span className="text-[11px] font-bold text-slate-600">{credits}/20</span>
-             </div>
-             <div className="w-px h-5 bg-slate-200" />
-             <Button onClick={handleAnalyze} disabled={loading || (requestedMode === 'prithvi' && credits === 0)} className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg px-4 shadow-md">
+               <Zap className={cn("w-3.5 h-3.5", credits > 0 ? "text-emerald-500 fill-current" : "text-slate-400")} />
+               <span className="text-[11px] font-bold text-slate-600">{credits}/20</span>
+               <div className="w-px h-5 bg-slate-200" />
+               <Button onClick={handleAnalyze} disabled={loading || (requestedMode === 'prithvi' && credits === 0)} className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg px-4 shadow-md">
                 {loading ? <Loader2 className="animate-spin w-3 h-3 mr-2" /> : <Sparkles className="w-3 h-3 mr-2" />}
                 Analyze
              </Button>
@@ -235,12 +236,20 @@ export default function MapContainer() {
                   </div>
                   <span className="text-[11px] font-bold text-slate-400 font-mono">{result.meta.processingTime}ms</span>
                 </div>
-                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
-                   <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-2">Detected Area</div>
-                   <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-slate-800">{result.data.analysisInfo?.stats?.areaHectares?.toFixed(1) || 0}</span>
-                      <span className="text-sm font-bold text-slate-400">ha</span>
-                   </div>
+                
+                <div className="flex gap-2">
+                  <div className="flex-1 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
+                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Area</div>
+                    <span className="text-2xl font-black text-slate-800">{result.data.analysisInfo?.stats?.areaHectares?.toFixed(1) || 0} ha</span>
+                  </div>
+                  {/* EXPLAIN BUTTON */}
+                  <Button 
+                    onClick={() => setShowExplainer(true)}
+                    className="h-auto aspect-square bg-slate-900 hover:bg-slate-800 text-white rounded-2xl flex flex-col gap-1 items-center justify-center shadow-lg"
+                  >
+                    <BookOpen className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase">Рассказать</span>
+                  </Button>
                 </div>
               </div>
             )}
@@ -266,7 +275,7 @@ export default function MapContainer() {
             </div>
             <div className="hidden md:flex items-center gap-2 shrink-0 border-l border-slate-100 pl-8">
                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">EarthPulse Monitoring</span>
+               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Live Monitoring</span>
             </div>
         </Card>
       </div>
@@ -283,6 +292,14 @@ export default function MapContainer() {
               />
            </div>
         </div>
+      )}
+
+      {/* EXPLAINER OVERLAY */}
+      {showExplainer && result && (
+        <AnalysisExplainer 
+          result={result} 
+          onClose={() => setShowExplainer(false)} 
+        />
       )}
     </div>
   );

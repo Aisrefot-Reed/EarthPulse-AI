@@ -2,7 +2,7 @@ import { GeoJsonLayer } from '@deck.gl/layers';
 
 /**
  * Advanced Layer Factory
- * Dynamically colors polygons based on analysis type (Fire = Orange, Flood = Blue, etc.)
+ * FIX: Opacity is now strictly linked to updateTriggers.
  */
 export function createAILayer(result: any, visible: boolean, opacity: number) {
   if (!result || !visible || !result.data?.polygons) return null;
@@ -10,7 +10,7 @@ export function createAILayer(result: any, visible: boolean, opacity: number) {
   const analysisType = result.data.analysisInfo?.type || 'deforestation';
   
   // Dynamic color selection
-  let fillColor = [220, 38, 38, opacity * 255]; // Default Red
+  let fillColor = [220, 38, 38, opacity * 255]; // Red
   let lineColor = [185, 28, 28, 255];
 
   if (analysisType === 'flooding') {
@@ -31,20 +31,10 @@ export function createAILayer(result: any, visible: boolean, opacity: number) {
     getLineWidth: 2,
     lineWidthMinPixels: 1,
     pickable: true,
+    // CRITICAL: Deck.gl needs this to update opacity without re-creating data
     updateTriggers: {
-      getFillColor: [opacity, analysisType]
+      getFillColor: [opacity, analysisType],
+      getLineColor: [analysisType]
     }
-  });
-}
-
-export function createUncertaintyLayer(result: any, visible: boolean) {
-  if (!result || !visible || !result.data?.polygons) return null;
-  return new GeoJsonLayer({
-    id: 'uncertainty-heatmap',
-    data: result.data.polygons,
-    filled: true,
-    stroked: false,
-    getFillColor: [245, 158, 11, 100],
-    opacity: 0.5,
   });
 }

@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     if (counts.current === 0) {
       return NextResponse.json({ 
         success: false, 
-        error: 'В выбранной области мало снимков без облаков. Попробуйте другой период.' 
+        error: 'Few cloud-free images found in this area. Try a different time range or larger area.' 
       }, { status: 200 });
     }
 
